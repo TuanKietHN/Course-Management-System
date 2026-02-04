@@ -1,4 +1,4 @@
-package vn.com.nws.cms.cms;
+package vn.com.nws.cms;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

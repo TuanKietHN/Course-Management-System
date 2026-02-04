@@ -1,4 +1,4 @@
-package vn.com.nws.cms.cms;
+package vn.com.nws.cms;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
