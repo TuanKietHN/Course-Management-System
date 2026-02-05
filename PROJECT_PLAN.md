@@ -2,145 +2,120 @@
 
 ## 1. Tổng quan Dự án
 *   **Tên dự án**: Course Management System (CMS)
-*   **Mục tiêu**: Xây dựng hệ thống quản lý khóa học nội bộ.
-*   **Kiến trúc**: Modular Monolith (Clean Architecture) hướng tới Microservices.
-*   **Môi trường**: Java 21, Spring Boot.
+*   **Mục tiêu**: Xây dựng hệ thống quản lý khóa học nội bộ hiện đại, hiệu năng cao.
+*   **Kiến trúc**: Modular Monolith (Clean Architecture).
+*   **Môi trường**: Java 21, Spring Boot 4.0.2 (hoặc 3.3.x stable).
 
 ## 2. Công nghệ & Công cụ (Tech Stack)
 
 ### Core Framework
 *   **Java Development Kit (JDK)**: 21
-*   **Spring Boot**: 4.0.2 (Hiện tại theo cấu hình) / *Khuyến nghị sử dụng bản Stable mới nhất (3.3.x)*
+*   **Spring Boot**: 4.0.2
 *   **Build Tool**: Maven
 
-### Dependencies (Hiện tại & Bổ sung)
-| Group | Artifact | Mục đích | Trạng thái |
-|-------|----------|----------|------------|
-| `org.springframework.boot` | `spring-boot-starter-webmvc` | REST API | Có sẵn |
-| `org.springframework.boot` | `spring-boot-starter-data-jpa` | ORM / Database | Có sẵn |
-| `org.springframework.boot` | `spring-boot-starter-security` | Authentication/Authorization | Có sẵn |
-| `org.springframework.boot` | `spring-boot-starter-validation` | Data Validation | Có sẵn |
-| `org.postgresql` | `postgresql` | Database Driver | Có sẵn |
-| `org.flywaydb` | `flyway-core` | DB Migration | Có sẵn |
-| `org.springframework.boot` | `spring-boot-starter-cache` | Caching | Có sẵn |
-| `org.projectlombok` | `lombok` | Giảm boilerplate code | **Cần bổ sung** |
-| `org.springdoc` | `springdoc-openapi-starter-webmvc-ui` | API Documentation | **Cần bổ sung** |
-| `io.jsonwebtoken` | `jjwt-api`, `jjwt-impl`, `jjwt-jackson` | JWT Handling | **Cần bổ sung** |
-| `org.mapstruct` | `mapstruct` | DTO Mapping (Optional) | **Cần bổ sung** |
+### Security & Authentication
+*   **Cơ chế**: Custom JWT Authentication (Stateful/Stateless Hybrid).
+*   **Token**:
+    *   **Access Token**: JWT (ngắn hạn, 15-30 phút).
+    *   **Refresh Token**: UUID hoặc Random String (dài hạn, 7-30 ngày), lưu trong **Redis**.
+*   **Thư viện**: JJWT (Java JWT).
+*   **Caching**: **Redis** (Lưu Refresh Token, Blacklist Token, Cache dữ liệu).
+
+### Data & Mapping
+*   **Database**: PostgreSQL.
+*   **Migration**: Flyway.
+*   **ORM**: JPA / Hibernate.
+*   **Mapper**: MapStruct.
+*   **Boilerplate**: Lombok.
+
+### Dependencies
+| Group | Artifact | Mục đích |
+|-------|----------|----------|
+| `org.springframework.boot` | `spring-boot-starter-webmvc` | REST API |
+| `org.springframework.boot` | `spring-boot-starter-data-jpa` | ORM |
+| `org.springframework.boot` | `spring-boot-starter-security` | Authentication/Authorization |
+| `org.springframework.boot` | `spring-boot-starter-data-redis` | Redis Client (Jedis/Lettuce) |
+| `io.jsonwebtoken` | `jjwt-api` | JWT generation/parsing |
+| `org.mapstruct` | `mapstruct` | Object Mapping |
+| `org.projectlombok` | `lombok` | Giảm code thừa |
+| `org.springdoc` | `springdoc-openapi-starter-webmvc-ui` | API Docs (Swagger) |
 
 ## 3. Kiến trúc Hệ thống (Clean Code Structure)
 
-Dự án được tổ chức theo cấu trúc **Modular Monolith**, phân tách rõ ràng giữa các module nghiệp vụ và các tầng (layers).
-
-### Cấu trúc Layer (trong mỗi Module)
-1.  **API Layer (`api`)**:
-    *   Controllers: Tiếp nhận request.
-    *   DTOs (Request/Response): Contract giao tiếp với client.
-2.  **Application Layer (`application`)**:
-    *   Services/UseCases: Xử lý nghiệp vụ (Business Logic), điều phối luồng dữ liệu.
-3.  **Domain Layer (`domain`)**:
-    *   Entities (Model): Đối tượng nghiệp vụ cốt lõi.
-    *   Repository Interfaces: Định nghĩa hành vi truy xuất dữ liệu (không phụ thuộc framework cụ thể).
-    *   Domain Events: Sự kiện nghiệp vụ (nếu có).
+### Cấu trúc Layer
+1.  **API Layer (`api`)**: Controllers, DTOs.
+2.  **Application Layer (`application`)**: Services, UseCases.
+3.  **Domain Layer (`domain`)**: Entities, Repositories (Interfaces).
 4.  **Infrastructure Layer (`infrastructure`)**:
-    *   Persistence: Implement Repository (JPA).
-    *   External: Tích hợp dịch vụ bên thứ 3 (Email, Storage, etc.).
+    *   **Persistence**: JPA Repositories.
+    *   **Security**: JWT Filter, UserDetailsService, RedisTokenStore.
+
+### Mô hình Bảo mật (JWT + Redis)
+1.  **Login**:
+    *   User gửi username/password.
+    *   Server xác thực -> Tạo Access Token (JWT) & Refresh Token.
+    *   Lưu Refresh Token vào Redis (Key: `rt:{username}`, Value: `{token}`, TTL: 7 days).
+    *   Trả về cả 2 token cho Client.
+2.  **Request**:
+    *   Client gửi Access Token trong Header.
+    *   Server (JwtFilter) validate signature & expiry.
+3.  **Refresh**:
+    *   Access Token hết hạn -> Client gọi API Refresh kèm Refresh Token.
+    *   Server check Refresh Token trong Redis. Nếu khớp -> Tạo cặp token mới -> Cập nhật Redis.
+4.  **Logout**:
+    *   Xóa Refresh Token khỏi Redis.
+    *   (Optional) Thêm Access Token hiện tại vào Blacklist (Redis) cho đến khi hết hạn.
 
 ## 4. Cấu trúc Thư mục Chi tiết
 
 ```
-vn.edu.nws.cms
+vn.com.nws.cms
 │
 ├── CmsApplication.java
 │
 ├── common (Shared Kernel)
 │   ├── config
 │   │   ├── SecurityConfig.java
-│   │   ├── JpaConfig.java
-│   │   ├── OpenApiConfig.java
-│   │   └── FlywayConfig.java
+│   │   ├── RedisConfig.java (Cấu hình RedisTemplate)
+│   │   └── AppConfig.java
+│   ├── security
+│   │   ├── JwtProvider.java (Generate/Validate Token)
+│   │   ├── JwtAuthenticationFilter.java
+│   │   └── CustomUserDetailsService.java
 │   ├── exception
-│   │   ├── GlobalExceptionHandler.java
-│   │   ├── BusinessException.java
-│   │   ├── ResourceNotFoundException.java
-│   │   └── ErrorResponse.java
-│   ├── dto
-│   │   ├── PageResponse.java
-│   │   ├── ApiResponse.java
-│   ├── util
-│   │   └── DateUtils.java
-│   ├── constant
-│   │   └── AppConstants.java
-│   └── audit
-│       └── AuditEntity.java (Base Entity cho created_at, updated_at)
+│   └── dto
 │
 └── modules
-    ├── auth (Quản lý xác thực)
+    ├── auth (Quản lý đăng nhập/đăng ký)
     │   ├── api
+    │   │   ├── AuthController.java (Login, Refresh, Logout)
+    │   │   └── dto
+    │   │       ├── LoginRequest.java
+    │   │       └── TokenResponse.java
     │   ├── application
-    │   ├── domain
-    │   └── infrastructure
+    │   │   └── AuthService.java
+    │   └── domain
+    │       └── model
+    │           └── User.java (Entity User/Role)
     │
-    ├── user (Quản lý người dùng)
-    │   ├── api
-    │   ├── application
-    │   ├── domain
-    │   └── infrastructure
-    │
-    ├── academic (Quản lý học vụ: Khóa học, Học kỳ, Lớp học phần)
-    │   ├── api
-    │   ├── application
-    │   ├── domain
-    │   └── infrastructure
-    │
-    ├── enrollment (Quản lý đăng ký học)
-    │   ├── api
-    │   ├── application
-    │   ├── domain
-    │   └── infrastructure
-    │
-    ├── grading (Quản lý điểm số)
-    │   ├── api
-    │   ├── application
-    │   ├── domain
-    │   └── infrastructure
-    │
-    └── report (Báo cáo & Thống kê)
-        ├── api
-        ├── application
-        └── infrastructure
+    ├── academic
+    ├── enrollment
+    ├── grading
+    └── report
 ```
 
 ## 5. Lộ trình Thực hiện (Roadmap)
 
-### Giai đoạn 1: Khởi tạo & Common Framework
-- [ ] Cập nhật `pom.xml` với các dependencies cần thiết.
-- [ ] Thiết lập cấu trúc package `common` và `modules`.
-- [ ] Cấu hình Database (PostgreSQL) và Migration (Flyway).
-- [ ] Thiết lập Security (JWT Filter, Config) và Exception Handling global.
-- [ ] Cấu hình Swagger/OpenAPI.
+### Giai đoạn 1: Foundation & Security
+- [ ] Setup Project & Dependencies (Redis, JWT).
+- [ ] Cấu hình Docker Compose (PostgreSQL, Redis).
+- [ ] Implement `auth` module: Login, Logout, Refresh Token với Redis.
+- [ ] Implement Security Filter Chain.
 
-### Giai đoạn 2: Module Core (Auth & User)
-- [ ] Implement `auth`: Login, Register, Refresh Token.
-- [ ] Implement `user`: CRUD User, Role management.
-- [ ] Unit Test cơ bản cho Service layer.
+### Giai đoạn 2: Modules Core
+- [ ] Implement Academic Module.
+- [ ] Tích hợp Redis Cache cho các dữ liệu ít thay đổi (Ví dụ: Danh sách môn học).
 
-### Giai đoạn 3: Module Nghiệp vụ (Academic)
-- [ ] Implement `academic`: Course, Semester, CourseSection.
-- [ ] Thiết lập quan hệ database giữa các entities.
-
-### Giai đoạn 4: Module Vận hành (Enrollment & Grading)
-- [ ] Implement `enrollment`: Đăng ký học phần, Hủy học phần.
-- [ ] Implement `grading`: Nhập điểm, Tính GPA.
-
-### Giai đoạn 5: Báo cáo & Mở rộng
-- [ ] Implement `report`: Xuất bảng điểm (PDF/Excel).
-- [ ] Tối ưu hóa Performance (Caching).
-- [ ] Mở rộng các tính năng nâng cao (Cảnh báo học vụ, Thi trực tuyến).
-
-## 6. Checklist Chất lượng (Definition of Done)
-- [ ] **Clean Code**: Tuân thủ naming convention, SOLID principles.
-- [ ] **Validation**: Input được validate chặt chẽ tại API layer.
-- [ ] **Error Handling**: API trả về lỗi chuẩn format `ErrorResponse`.
-- [ ] **Auditing**: Dữ liệu có `created_at`, `updated_at`, `created_by`.
-- [ ] **Documentation**: API có đầy đủ document trên Swagger.
+### Giai đoạn 3: Business Logic
+- [ ] Enrollment & Grading.
+- [ ] Reporting.
