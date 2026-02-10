@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.nws.cms.common.dto.PageResponse;
 import vn.com.nws.cms.common.exception.BusinessException;
+import vn.com.nws.cms.domain.enums.RoleType;
 import vn.com.nws.cms.modules.auth.domain.model.User;
 import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
 import vn.com.nws.cms.modules.user.api.dto.*;
@@ -16,7 +17,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -66,11 +69,22 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("Email already exists");
         }
 
+        Set<RoleType> roles = new HashSet<>();
+        if (request.getRole() != null && !request.getRole().isEmpty()) {
+            try {
+                roles.add(RoleType.valueOf(request.getRole().replace("ROLE_", "")));
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException("Invalid role: " + request.getRole());
+            }
+        } else {
+            roles.add(RoleType.STUDENT);
+        }
+
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role("ROLE_" + request.getRole())
+                .roles(roles)
                 .build();
 
         user = userRepository.save(user);
@@ -90,8 +104,14 @@ public class UserServiceImpl implements UserService {
             user.setEmail(request.getEmail());
         }
 
-        if (request.getRole() != null) {
-            user.setRole("ROLE_" + request.getRole());
+        if (request.getRole() != null && !request.getRole().isEmpty()) {
+            try {
+                Set<RoleType> roles = new HashSet<>();
+                roles.add(RoleType.valueOf(request.getRole().replace("ROLE_", "")));
+                user.setRoles(roles);
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException("Invalid role: " + request.getRole());
+            }
         }
 
         if (request.getPassword() != null && !request.getPassword().isEmpty()) {
@@ -180,7 +200,7 @@ public class UserServiceImpl implements UserService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .avatar(user.getAvatar())
-                .role(user.getRole())
+                .role(user.getRoles().stream().map(Enum::name).collect(Collectors.joining(",")))
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

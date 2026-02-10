@@ -174,7 +174,7 @@ public class CourseServiceImpl implements CourseService {
                         .id(course.getTeacher().getId())
                         .username(course.getTeacher().getUsername())
                         .email(course.getTeacher().getEmail())
-                        .role(course.getTeacher().getRole())
+                        .role(course.getTeacher().getRoles().stream().map(Enum::name).collect(Collectors.joining(",")))
                         .build() : null)
                 .createdAt(course.getCreatedAt())
                 .updatedAt(course.getUpdatedAt())

@@ -9,30 +9,30 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.com.nws.cms.common.exception.BusinessException;
 import vn.com.nws.cms.common.security.JwtProvider;
-import vn.com.nws.cms.modules.auth.api.dto.*;
+import vn.com.nws.cms.modules.auth.api.dto.LoginRequest;
+import vn.com.nws.cms.modules.auth.api.dto.RefreshTokenRequest;
+import vn.com.nws.cms.modules.auth.api.dto.TokenResponse;
 import vn.com.nws.cms.modules.auth.domain.model.User;
 import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
 
 import java.time.Duration;
 import java.util.Collections;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AuthService {
+public class AuthenticationService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final RedisTemplate<String, Object> redisTemplate;
-    private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
-    private final vn.com.nws.cms.infrastructure.messaging.EmailProducer emailProducer;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
@@ -42,7 +42,6 @@ public class AuthService {
 
     private static final String REDIS_RT_KEY_PREFIX = "auth:rt:"; // Key: token -> Value: username
     private static final String REDIS_USER_RT_KEY_PREFIX = "auth:u:rt:"; // Key: username -> Value: token (Single Session enforcement)
-    private static final String REDIS_RESET_TOKEN_PREFIX = "auth:reset:";
 
     @Transactional
     public TokenResponse login(LoginRequest loginRequest) {
@@ -60,26 +59,6 @@ public class AuthService {
         saveRefreshTokenToRedis(user.getUsername(), refreshToken);
 
         return buildTokenResponse(jwt, refreshToken, user);
-    }
-
-    @Transactional
-    public void register(RegisterRequest registerRequest) {
-        if (userRepository.existsByUsername(registerRequest.getUsername())) {
-            throw new BusinessException("Username is already taken!");
-        }
-
-        if (userRepository.existsByEmail(registerRequest.getEmail())) {
-            throw new BusinessException("Email is already in use!");
-        }
-
-        User user = User.builder()
-                .username(registerRequest.getUsername())
-                .email(registerRequest.getEmail())
-                .password(passwordEncoder.encode(registerRequest.getPassword()))
-                .role(registerRequest.getRole() != null ? "ROLE_" + registerRequest.getRole() : "ROLE_STUDENT")
-                .build();
-
-        userRepository.save(user);
     }
 
     public TokenResponse refreshToken(RefreshTokenRequest request) {
@@ -111,7 +90,9 @@ public class AuthService {
         Authentication auth = new UsernamePasswordAuthenticationToken(
                 user.getUsername(), 
                 null, 
-                Collections.singletonList(new SimpleGrantedAuthority(user.getRole()))
+                user.getRoles().stream()
+                    .map(role -> new SimpleGrantedAuthority(role.authority()))
+                    .collect(Collectors.toList())
         );
         String newAccessToken = jwtProvider.generateToken(auth);
         
@@ -137,49 +118,6 @@ public class AuthService {
         }
     }
 
-    public void forgotPassword(ForgotPasswordRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BusinessException("User with email " + request.getEmail() + " not found"));
-
-        String resetToken = UUID.randomUUID().toString();
-        String key = REDIS_RESET_TOKEN_PREFIX + resetToken;
-        
-        // Store in Redis: key=token, value=email, ttl=15 min
-        redisTemplate.opsForValue().set(key, user.getEmail(), Duration.ofMinutes(15));
-        
-        log.info("Reset Password Token for {}: {}", user.getEmail(), resetToken);
-        
-        // Send Reset Password Email asynchronously
-        emailProducer.sendEmail(vn.com.nws.cms.common.dto.EmailMessage.builder()
-                .to(user.getEmail())
-                .subject("Reset Password Request")
-                .body("Your reset token is: " + resetToken)
-                .type("FORGOT_PASSWORD")
-                .build());
-    }
-
-    @Transactional
-    public void resetPassword(ResetPasswordRequest request) {
-        String key = REDIS_RESET_TOKEN_PREFIX + request.getToken();
-        String email = (String) redisTemplate.opsForValue().get(key);
-        
-        if (email == null) {
-            throw new BusinessException("Invalid or expired reset token");
-        }
-        
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BusinessException("User not found"));
-                
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
-        
-        // Invalidate token
-        redisTemplate.delete(key);
-        
-        // Optional: Invalidate all sessions (force login)
-        redisTemplate.delete(REDIS_USER_RT_KEY_PREFIX + user.getUsername());
-    }
-
     private void saveRefreshTokenToRedis(String username, String refreshToken) {
         // Enforce Single Session: Invalidate old token if exists
         String oldToken = (String) redisTemplate.opsForValue().get(REDIS_USER_RT_KEY_PREFIX + username);
@@ -199,7 +137,7 @@ public class AuthService {
                 .tokenType("Bearer")
                 .expiresIn(jwtExpiration / 1000)
                 .username(user.getUsername())
-                .role(user.getRole())
+                .role(user.getRoles().stream().map(Enum::name).collect(Collectors.joining(",")))
                 .build();
     }
 }

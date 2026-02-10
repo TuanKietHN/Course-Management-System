@@ -11,29 +11,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "roles")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserEntity extends AuditEntity {
+public class RoleEntity extends AuditEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String username;
+    private String name;
 
-    @Column(nullable = false)
-    private String password;
+    private String description;
 
-    @Column(unique = true, nullable = false)
-    private String email;
-
-    @Column(name = "avatar")
-    private String avatar;
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserRoleEntity> userRoles = new ArrayList<>();
 }

@@ -16,9 +16,9 @@ public interface JpaUserRepository extends JpaRepository<UserEntity, Long> {
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
 
-    @Query("SELECT u FROM UserEntity u WHERE (:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND (:role IS NULL OR u.role = :role)")
-    Page<UserEntity> search(String keyword, String role, Pageable pageable);
+    @Query("SELECT DISTINCT u FROM UserEntity u LEFT JOIN u.userRoles ur LEFT JOIN ur.role r WHERE (:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND (:roleName IS NULL OR r.name = :roleName)")
+    Page<UserEntity> search(String keyword, String roleName, Pageable pageable);
     
-    @Query("SELECT COUNT(u) FROM UserEntity u WHERE (:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND (:role IS NULL OR u.role = :role)")
-    long count(String keyword, String role);
+    @Query("SELECT COUNT(DISTINCT u) FROM UserEntity u LEFT JOIN u.userRoles ur LEFT JOIN ur.role r WHERE (:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND (:roleName IS NULL OR r.name = :roleName)")
+    long count(String keyword, String roleName);
 }
