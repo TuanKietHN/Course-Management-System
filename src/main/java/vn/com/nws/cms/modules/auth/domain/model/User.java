@@ -16,5 +16,6 @@ public class User extends AuditEntity {
     private String username;
     private String password;
     private String email;
+    private String avatar;
     private String role; // ROLE_ADMIN, ROLE_TEACHER, ROLE_STUDENT
 }

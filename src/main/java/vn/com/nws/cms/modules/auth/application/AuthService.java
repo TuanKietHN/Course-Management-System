@@ -32,6 +32,7 @@ public class AuthService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final vn.com.nws.cms.infrastructure.messaging.EmailProducer emailProducer;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
@@ -147,6 +148,14 @@ public class AuthService {
         redisTemplate.opsForValue().set(key, user.getEmail(), Duration.ofMinutes(15));
         
         log.info("Reset Password Token for {}: {}", user.getEmail(), resetToken);
+        
+        // Send Reset Password Email asynchronously
+        emailProducer.sendEmail(vn.com.nws.cms.common.dto.EmailMessage.builder()
+                .to(user.getEmail())
+                .subject("Reset Password Request")
+                .body("Your reset token is: " + resetToken)
+                .type("FORGOT_PASSWORD")
+                .build());
     }
 
     @Transactional

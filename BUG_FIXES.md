@@ -49,5 +49,21 @@ Log báo "Multiple Spring Data modules found, entering strict repository configu
 **Nguyên nhân:**
 Có cả Spring Data JPA và Spring Data Redis trong classpath.
 
+## 5. Vấn đề: Gửi Email đồng bộ gây chậm thao tác người dùng
+**Mô tả:**
+Trước đây (hoặc tiềm ẩn), việc gửi email xác nhận đăng ký hoặc quên mật khẩu được thực hiện trực tiếp trong luồng xử lý API (synchronous). Điều này làm tăng độ trễ phản hồi cho người dùng và có nguy cơ lỗi timeout nếu SMTP server phản hồi chậm.
+
 **Cách khắc phục:**
-Đây là cảnh báo bình thường. Tuy nhiên để "sạch" log và tối ưu khởi động, nên cấu hình rõ ràng `@EnableJpaRepositories` như ở mục 1.
+Đã chuyển sang cơ chế xử lý bất đồng bộ (Asynchronous) sử dụng **RabbitMQ**.
+1.  API chỉ đẩy message vào Queue và trả về phản hồi ngay lập tức cho người dùng.
+2.  `EmailConsumer` sẽ đọc message từ Queue và thực hiện gửi email trong nền.
+3.  Cấu hình tại `RabbitMqConfig`, `EmailProducer`, và `EmailConsumer`.
+
+## 6. Vấn đề: Lưu trữ file ảnh (Avatar)
+**Mô tả:**
+Chưa có giải pháp lưu trữ file tập trung, ảnh profile.
+
+**Cách khắc phục:**
+Đã tích hợp **MinIO** (S3 Compatible Storage).
+1.  Thêm `MinioConfig` và `StorageService`.
+2.  Refactor `UserService` để hỗ trợ upload avatar lên MinIO bucket `avatars`.

@@ -4,13 +4,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import vn.com.nws.cms.common.dto.PageResponse;
 import vn.com.nws.cms.common.exception.BusinessException;
 import vn.com.nws.cms.modules.auth.domain.model.User;
 import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
 import vn.com.nws.cms.modules.user.api.dto.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -19,6 +26,9 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    // Cấu hình đường dẫn lưu file avatar
+    private static final String UPLOAD_DIR = "uploads/avatars/";
 
     @Override
     public PageResponse<UserResponse> getUsers(UserFilterRequest request) {
@@ -94,6 +104,69 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
+    public UserResponse uploadAvatar(Long id, MultipartFile file) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("User not found"));
+
+        // Validate file
+        if (file.isEmpty()) {
+            throw new BusinessException("File is empty");
+        }
+
+        // Validate file type
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BusinessException("File must be an image");
+        }
+
+        // Validate file size (ví dụ: max 5MB)
+        long maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.getSize() > maxSize) {
+            throw new BusinessException("File size must not exceed 5MB");
+        }
+
+        try {
+            // Tạo thư mục nếu chưa tồn tại
+            Path uploadPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            // Tạo tên file unique
+            String originalFilename = file.getOriginalFilename();
+            String fileExtension = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                    : "";
+            String newFilename = UUID.randomUUID().toString() + fileExtension;
+
+            // Lưu file
+            Path filePath = uploadPath.resolve(newFilename);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            // Xóa avatar cũ nếu có
+            if (user.getAvatar() != null && !user.getAvatar().isEmpty()) {
+                try {
+                    Path oldFilePath = Paths.get(user.getAvatar());
+                    Files.deleteIfExists(oldFilePath);
+                } catch (IOException e) {
+                    // Log error nhưng không throw exception
+                    System.err.println("Failed to delete old avatar: " + e.getMessage());
+                }
+            }
+
+            // Cập nhật đường dẫn avatar
+            user.setAvatar(UPLOAD_DIR + newFilename);
+            user = userRepository.save(user);
+
+            return toUserResponse(user);
+
+        } catch (IOException e) {
+            throw new BusinessException("Failed to upload avatar: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
     public void deleteUser(Long id) {
         if (!userRepository.findById(id).isPresent()) {
             throw new BusinessException("User not found");
@@ -106,6 +179,7 @@ public class UserServiceImpl implements UserService {
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .avatar(user.getAvatar())
                 .role(user.getRole())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

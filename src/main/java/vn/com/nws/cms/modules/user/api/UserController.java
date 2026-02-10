@@ -5,9 +5,11 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import vn.com.nws.cms.common.dto.ApiResponse;
 import vn.com.nws.cms.common.dto.PageResponse;
 import vn.com.nws.cms.modules.user.api.dto.*;
@@ -61,6 +63,15 @@ public class UserController {
             @Valid @RequestBody UserUpdateRequest request) {
         UserResponse response = userService.updateUser(id, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật người dùng thành công", response));
+    }
+
+    @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload Avatar", description = "Upload ảnh đại diện cho người dùng")
+    public ResponseEntity<ApiResponse<UserResponse>> uploadAvatar(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        UserResponse response = userService.uploadAvatar(id, file);
+        return ResponseEntity.ok(ApiResponse.success("Upload avatar thành công", response));
     }
 
     @DeleteMapping("/{id}")

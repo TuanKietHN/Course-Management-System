@@ -11,7 +11,9 @@
 ### Backend (Spring Boot)
 *   **Core**: Java 21, Spring Boot 4.0.2.
 *   **Database**: PostgreSQL.
-*   **Auth**: OAuth2 Resource Server (JWT) + Database (Refresh Token) - **Đã loại bỏ Redis**.
+*   **Message Broker**: RabbitMQ (Async Emails).
+*   **Storage**: MinIO (File/Avatar Storage).
+*   **Auth**: OAuth2 Resource Server (JWT) + Redis (Refresh Token) + RabbitMQ (Async Notifications).
 *   **API Docs**: Swagger/OpenAPI.
 *   **Mapping**: MapStruct.
 
@@ -108,7 +110,9 @@ cms-root/
 
 ### Giai đoạn 1: Foundation (Backend) - Đã hoàn thành
 - [x] Setup Spring Boot, Security (OAuth2), Database.
-- [x] Implement Auth Module (Login, Register) với Refresh Token lưu DB.
+- [x] Implement Auth Module (Login, Register) với Refresh Token lưu Redis.
+- [x] Tích hợp RabbitMQ để gửi email bất đồng bộ (Welcome, Reset Password).
+- [x] Tích hợp MinIO để lưu trữ file/avatar.
 
 ### Giai đoạn 2: Frontend Setup (Vue.js)
 - [ ] Khởi tạo dự án Vue 3 + Vite + TS trong thư mục `frontend`.
