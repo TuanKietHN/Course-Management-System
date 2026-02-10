@@ -3,9 +3,11 @@ package vn.com.nws.cms.modules.auth.application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,12 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.com.nws.cms.common.exception.BusinessException;
 import vn.com.nws.cms.common.security.JwtProvider;
 import vn.com.nws.cms.modules.auth.api.dto.*;
-import vn.com.nws.cms.modules.auth.domain.model.RefreshToken;
 import vn.com.nws.cms.modules.auth.domain.model.User;
-import vn.com.nws.cms.modules.auth.domain.repository.RefreshTokenRepository;
 import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
 
-import java.time.Instant;
+import java.time.Duration;
+import java.util.Collections;
 import java.util.UUID;
 
 @Service
@@ -28,7 +29,7 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
 
@@ -37,6 +38,10 @@ public class AuthService {
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    private static final String REDIS_RT_KEY_PREFIX = "auth:rt:"; // Key: token -> Value: username
+    private static final String REDIS_USER_RT_KEY_PREFIX = "auth:u:rt:"; // Key: username -> Value: token (Single Session enforcement)
+    private static final String REDIS_RESET_TOKEN_PREFIX = "auth:reset:";
 
     @Transactional
     public TokenResponse login(LoginRequest loginRequest) {
@@ -49,27 +54,11 @@ public class AuthService {
         User user = userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow(() -> new BusinessException("User not found"));
 
-        // Delete existing refresh tokens for user
-        refreshTokenRepository.deleteByUser(user);
+        // Handle Refresh Token
+        String refreshToken = UUID.randomUUID().toString();
+        saveRefreshTokenToRedis(user.getUsername(), refreshToken);
 
-        String refreshTokenStr = jwtProvider.generateRefreshToken(user.getUsername());
-        
-        // Save refresh token to DB
-        RefreshToken refreshToken = RefreshToken.builder()
-                .token(refreshTokenStr)
-                .user(user)
-                .expiryDate(Instant.now().plusMillis(refreshExpiration))
-                .build();
-        refreshTokenRepository.save(refreshToken);
-
-        return TokenResponse.builder()
-                .accessToken(jwt)
-                .refreshToken(refreshTokenStr)
-                .tokenType("Bearer")
-                .expiresIn(jwtExpiration / 1000)
-                .username(user.getUsername())
-                .role(user.getRole())
-                .build();
+        return buildTokenResponse(jwt, refreshToken, user);
     }
 
     @Transactional
@@ -92,44 +81,58 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    @Transactional
     public TokenResponse refreshToken(RefreshTokenRequest request) {
         String requestRefreshToken = request.getRefreshToken();
         
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(requestRefreshToken)
-                .orElseThrow(() -> new BusinessException("Refresh token is invalid or expired!"));
-
-        if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
-            refreshTokenRepository.delete(refreshToken);
-            throw new BusinessException("Refresh token was expired. Please make a new signin request");
+        // 1. Find username by token
+        String username = (String) redisTemplate.opsForValue().get(REDIS_RT_KEY_PREFIX + requestRefreshToken);
+        if (username == null) {
+            throw new BusinessException("Refresh token is invalid or expired!");
         }
 
-        User user = refreshToken.getUser();
-        String username = user.getUsername();
+        // 2. Validate Single Session (Token Reuse Detection)
+        String currentActiveToken = (String) redisTemplate.opsForValue().get(REDIS_USER_RT_KEY_PREFIX + username);
+        if (!requestRefreshToken.equals(currentActiveToken)) {
+            // Token mismatch! Possible theft. Invalidate everything for this user.
+            redisTemplate.delete(REDIS_USER_RT_KEY_PREFIX + username);
+            redisTemplate.delete(REDIS_RT_KEY_PREFIX + requestRefreshToken);
+            if (currentActiveToken != null) {
+                redisTemplate.delete(REDIS_RT_KEY_PREFIX + currentActiveToken);
+            }
+            throw new BusinessException("Refresh token reuse detected! Please login again.");
+        }
 
-        // Generate new Access Token
-        String newAccessToken = jwtProvider.generateToken(username);
-        String newRefreshTokenStr = jwtProvider.generateRefreshToken(username);
+        // 3. Rotate Token
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BusinessException("User not found"));
 
-        // Rotate Refresh Token
-        refreshToken.setToken(newRefreshTokenStr);
-        refreshToken.setExpiryDate(Instant.now().plusMillis(refreshExpiration));
-        refreshTokenRepository.save(refreshToken);
+        // Generate new JWT
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                user.getUsername(), 
+                null, 
+                Collections.singletonList(new SimpleGrantedAuthority(user.getRole()))
+        );
+        String newAccessToken = jwtProvider.generateToken(auth);
+        
+        // Generate new Refresh Token
+        String newRefreshToken = UUID.randomUUID().toString();
+        
+        // Cleanup old token
+        redisTemplate.delete(REDIS_RT_KEY_PREFIX + requestRefreshToken);
+        
+        // Save new token
+        saveRefreshTokenToRedis(username, newRefreshToken);
 
-        return TokenResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshTokenStr)
-                .tokenType("Bearer")
-                .expiresIn(jwtExpiration / 1000)
-                .username(username)
-                .role(user.getRole())
-                .build();
+        return buildTokenResponse(newAccessToken, newRefreshToken, user);
     }
 
-    @Transactional
     public void logout(String refreshToken) {
         if (refreshToken != null) {
-            refreshTokenRepository.deleteByToken(refreshToken);
+            String username = (String) redisTemplate.opsForValue().get(REDIS_RT_KEY_PREFIX + refreshToken);
+            if (username != null) {
+                redisTemplate.delete(REDIS_RT_KEY_PREFIX + refreshToken);
+                redisTemplate.delete(REDIS_USER_RT_KEY_PREFIX + username);
+            }
         }
     }
 
@@ -138,17 +141,56 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessException("User with email " + request.getEmail() + " not found"));
 
         String resetToken = UUID.randomUUID().toString();
+        String key = REDIS_RESET_TOKEN_PREFIX + resetToken;
         
-        // TODO: Store reset token in DB or use a separate ResetToken entity
-        // For simplicity in this demo without Redis, we are just logging it.
-        // In production, create a PasswordResetToken entity similar to RefreshToken.
+        // Store in Redis: key=token, value=email, ttl=15 min
+        redisTemplate.opsForValue().set(key, user.getEmail(), Duration.ofMinutes(15));
         
         log.info("Reset Password Token for {}: {}", user.getEmail(), resetToken);
     }
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        // TODO: Validate token against DB
-        throw new BusinessException("Reset password functionality requires DB implementation for token storage");
+        String key = REDIS_RESET_TOKEN_PREFIX + request.getToken();
+        String email = (String) redisTemplate.opsForValue().get(key);
+        
+        if (email == null) {
+            throw new BusinessException("Invalid or expired reset token");
+        }
+        
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException("User not found"));
+                
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        
+        // Invalidate token
+        redisTemplate.delete(key);
+        
+        // Optional: Invalidate all sessions (force login)
+        redisTemplate.delete(REDIS_USER_RT_KEY_PREFIX + user.getUsername());
+    }
+
+    private void saveRefreshTokenToRedis(String username, String refreshToken) {
+        // Enforce Single Session: Invalidate old token if exists
+        String oldToken = (String) redisTemplate.opsForValue().get(REDIS_USER_RT_KEY_PREFIX + username);
+        if (oldToken != null) {
+            redisTemplate.delete(REDIS_RT_KEY_PREFIX + oldToken);
+        }
+
+        // Save new token
+        redisTemplate.opsForValue().set(REDIS_RT_KEY_PREFIX + refreshToken, username, Duration.ofMillis(refreshExpiration));
+        redisTemplate.opsForValue().set(REDIS_USER_RT_KEY_PREFIX + username, refreshToken, Duration.ofMillis(refreshExpiration));
+    }
+
+    private TokenResponse buildTokenResponse(String accessToken, String refreshToken, User user) {
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtExpiration / 1000)
+                .username(user.getUsername())
+                .role(user.getRole())
+                .build();
     }
 }
