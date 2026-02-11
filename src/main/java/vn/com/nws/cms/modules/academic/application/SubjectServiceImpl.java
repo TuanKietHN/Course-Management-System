@@ -54,7 +54,7 @@ public class SubjectServiceImpl implements SubjectService {
         Subject subject = Subject.builder()
                 .name(request.getName())
                 .code(request.getCode())
-                .credit(request.getCredit())
+                .credits(request.getCredit())
                 .description(request.getDescription())
                 .active(request.isActive())
                 .build();
@@ -77,7 +77,7 @@ public class SubjectServiceImpl implements SubjectService {
         }
 
         if (request.getName() != null) subject.setName(request.getName());
-        if (request.getCredit() != null) subject.setCredit(request.getCredit());
+        if (request.getCredit() != null) subject.setCredits(request.getCredit());
         if (request.getDescription() != null) subject.setDescription(request.getDescription());
         if (request.getActive() != null) subject.setActive(request.getActive());
 
@@ -99,7 +99,7 @@ public class SubjectServiceImpl implements SubjectService {
                 .id(subject.getId())
                 .name(subject.getName())
                 .code(subject.getCode())
-                .credit(subject.getCredit())
+                .credit(subject.getCredits())
                 .description(subject.getDescription())
                 .active(subject.isActive())
                 .createdAt(subject.getCreatedAt())

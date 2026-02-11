@@ -25,11 +25,27 @@ public class SubjectEntity extends AuditEntity {
     private String code;
 
     @Column(nullable = false)
-    private Integer credit;
+    private Integer credits;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
     @Column(nullable = false)
     private boolean active;
+    
+    // New fields from V3 migration
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private DepartmentEntity department;
+    
+    @Column(name = "theory_hours")
+    private Integer theoryHours;
+    
+    @Column(name = "practice_hours")
+    private Integer practiceHours;
+    
+    // Note: prerequisite_subject_ids is BIGINT[] in Postgres. 
+    // JPA handling of arrays can be complex. 
+    // For simplicity, we might skip mapping it directly or use a custom type if needed.
+    // Or we can map it as List<Long> with appropriate Hibernate types.
 }

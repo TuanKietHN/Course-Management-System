@@ -4,11 +4,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
+import vn.com.nws.cms.domain.enums.RoleType;
 import vn.com.nws.cms.modules.auth.domain.model.User;
 import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
+import vn.com.nws.cms.modules.auth.infrastructure.persistence.entity.RoleEntity;
 import vn.com.nws.cms.modules.auth.infrastructure.persistence.entity.UserEntity;
+import vn.com.nws.cms.modules.auth.infrastructure.persistence.entity.UserRoleEntity;
+import vn.com.nws.cms.modules.auth.infrastructure.persistence.entity.UserRoleId;
 import vn.com.nws.cms.modules.auth.infrastructure.persistence.mapper.UserMapper;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -18,15 +24,61 @@ import java.util.stream.Collectors;
 public class UserRepositoryImpl implements UserRepository {
 
     private final JpaUserRepository jpaUserRepository;
+    private final JpaRoleRepository jpaRoleRepository;
     private final UserMapper userMapper;
 
     @Override
     public User save(User user) {
-        UserEntity entity = userMapper.toEntity(user);
+        UserEntity entity;
+
         // Ensure ID is preserved if updating
         if (user.getId() != null) {
-            entity.setId(user.getId());
+            // Fetch existing entity to avoid detaching or issues with updates
+            Optional<UserEntity> existingOpt = jpaUserRepository.findById(user.getId());
+            if (existingOpt.isPresent()) {
+                UserEntity existing = existingOpt.get();
+                UserEntity mappedEntity = userMapper.toEntity(user);
+                
+                // Copy non-relational fields
+                existing.setUsername(mappedEntity.getUsername());
+                existing.setPassword(mappedEntity.getPassword());
+                existing.setEmail(mappedEntity.getEmail());
+                existing.setAvatar(mappedEntity.getAvatar());
+                entity = existing;
+            } else {
+                entity = userMapper.toEntity(user);
+                entity.setId(user.getId());
+            }
+        } else {
+            entity = userMapper.toEntity(user);
         }
+
+        // Map roles manually using UserRoleEntity
+        if (user.getRoles() != null) {
+            // Clear existing roles if we are updating, or start fresh
+            if (entity.getUserRoles() == null) {
+                entity.setUserRoles(new ArrayList<>());
+            } else {
+                entity.getUserRoles().clear();
+            }
+
+            final UserEntity finalEntity = entity; // Make final for lambda use
+            for (RoleType roleType : user.getRoles()) {
+                jpaRoleRepository.findByName(roleType.authority())
+                        .ifPresent(roleEntity -> {
+                            UserRoleEntity userRole = new UserRoleEntity();
+                            // If user ID is null (new user), ID part will be null.
+                            // However, we can set association and let JPA handle it if we use @MapsId properly or save user first.
+                            // With composite key and @MapsId, we usually just set the relation.
+                            userRole.setId(new UserRoleId(finalEntity.getId(), roleEntity.getId())); 
+                            userRole.setUser(finalEntity);
+                            userRole.setRole(roleEntity);
+                            userRole.setAssignedAt(LocalDateTime.now());
+                            finalEntity.getUserRoles().add(userRole);
+                        });
+            }
+        }
+
         UserEntity savedEntity = jpaUserRepository.save(entity);
         return userMapper.toDomain(savedEntity);
     }
@@ -63,7 +115,15 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public List<User> search(String keyword, String role, int page, int size) {
-        Page<UserEntity> entities = jpaUserRepository.search(keyword, role, PageRequest.of(page - 1, size));
+        String roleName = null;
+        if (role != null && !role.isEmpty()) {
+            if (!role.startsWith("ROLE_")) {
+                roleName = "ROLE_" + role;
+            } else {
+                roleName = role;
+            }
+        }
+        Page<UserEntity> entities = jpaUserRepository.search(keyword, roleName, PageRequest.of(page - 1, size));
         return entities.getContent().stream()
                 .map(userMapper::toDomain)
                 .collect(Collectors.toList());
@@ -71,6 +131,14 @@ public class UserRepositoryImpl implements UserRepository {
 
     @Override
     public long count(String keyword, String role) {
-        return jpaUserRepository.count(keyword, role);
+        String roleName = null;
+        if (role != null && !role.isEmpty()) {
+            if (!role.startsWith("ROLE_")) {
+                roleName = "ROLE_" + role;
+            } else {
+                roleName = role;
+            }
+        }
+        return jpaUserRepository.count(keyword, roleName);
     }
 }

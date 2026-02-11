@@ -6,6 +6,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import vn.com.nws.cms.domain.enums.RoleType;
 import vn.com.nws.cms.modules.academic.domain.model.Course;
 import vn.com.nws.cms.modules.academic.domain.model.Semester;
 import vn.com.nws.cms.modules.academic.domain.model.Subject;
@@ -16,6 +17,7 @@ import vn.com.nws.cms.modules.auth.domain.model.User;
 import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -33,6 +35,10 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
         log.info("=== Starting Data Seeder ===");
 
+        // Flyway already seeds initial roles and basic users (admin, teacher, student).
+        // We should check if they exist and only add demo data if missing.
+        // Or we can rely on Flyway for basic structure and use this for additional demo data.
+        
         seedUsers();
         seedSemesters();
         seedSubjects();
@@ -46,35 +52,25 @@ public class DataSeeder implements CommandLineRunner {
        ========================= */
 
     private void seedUsers() {
-        seedUserIfNotExists(
-                "admin",
-                "admin@nws.com.vn",
-                "admin123",
-                "ROLE_ADMIN"
-        );
+        // Only seed if not exist. 
+        // Note: Flyway V2 inserts admin, teacher, student.
+        // We can add a manager for multi-role demo if not present.
 
         seedUserIfNotExists(
-                "teacher",
-                "teacher@nws.com.vn",
-                "teacher123",
-                "ROLE_TEACHER"
+                "manager",
+                "manager@nws.com.vn",
+                "manager123",
+                Set.of(RoleType.TEACHER, RoleType.ADMIN)
         );
 
-        seedUserIfNotExists(
-                "student",
-                "student@nws.com.vn",
-                "student123",
-                "ROLE_STUDENT"
-        );
-
-        log.info("Users seeding done.");
+        log.info("Users seeding check done.");
     }
 
     private void seedUserIfNotExists(
             String username,
             String email,
             String rawPassword,
-            String role
+            Set<RoleType> roles
     ) {
         if (userRepository.existsByEmail(email)) {
             log.info("User [{}] already exists, skipping", email);
@@ -85,7 +81,7 @@ public class DataSeeder implements CommandLineRunner {
                 .username(username)
                 .email(email)
                 .password(passwordEncoder.encode(rawPassword))
-                .role(role)
+                .roles(roles)
                 .build();
 
         userRepository.save(user);
@@ -97,6 +93,7 @@ public class DataSeeder implements CommandLineRunner {
        ========================= */
 
     private void seedSemesters() {
+        // Same check, rely on DB constraints or checks
         seedSemesterIfNotExists(
                 "HK1_2425",
                 "Học kỳ 1 2024-2025",
@@ -172,10 +169,10 @@ public class DataSeeder implements CommandLineRunner {
     private void seedSubjectIfNotExists(
             String code,
             String name,
-            int credit,
+            int credits,
             String description
     ) {
-        if (subjectRepository.findByCode(code).isPresent()) {
+        if (subjectRepository.existsByCode(code)) {
             log.info("Subject [{}] already exists, skipping", code);
             return;
         }
@@ -183,14 +180,17 @@ public class DataSeeder implements CommandLineRunner {
         Subject subject = Subject.builder()
                 .code(code)
                 .name(name)
-                .credit(credit)
+                .credits(credits)
                 .description(description)
                 .active(true)
+                .theoryHours(30)
+                .practiceHours(15)
                 .build();
 
         subjectRepository.save(subject);
         log.info("Seeded subject [{}]", code);
     }
+
 
     /* =========================
        COURSES
@@ -200,6 +200,13 @@ public class DataSeeder implements CommandLineRunner {
         if (courseRepository.findByCode("JAVA001_HK1_01").isPresent()) {
             log.info("Course [JAVA001_HK1_01] already exists, skipping");
             return;
+        }
+
+        // We assume 'teacher' user exists (created by Flyway or seeded above)
+        // If not found, we skip seeding course to avoid crash
+        if (!userRepository.existsByUsername("teacher")) {
+             log.warn("Teacher user not found, skipping course seeding");
+             return;
         }
 
         Semester semester = semesterRepository.findByCode("HK1_2425")

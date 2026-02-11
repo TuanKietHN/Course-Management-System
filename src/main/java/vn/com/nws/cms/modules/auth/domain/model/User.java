@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import vn.com.nws.cms.common.audit.AuditEntity;
+import vn.com.nws.cms.domain.enums.RoleType;
+import java.util.Set;
 
 @Data
 @Builder
@@ -17,5 +19,5 @@ public class User extends AuditEntity {
     private String password;
     private String email;
     private String avatar;
-    private String role; // ROLE_ADMIN, ROLE_TEACHER, ROLE_STUDENT
+    private Set<RoleType> roles;
 }
