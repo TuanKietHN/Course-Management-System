@@ -1,0 +1,235 @@
+package vn.com.nws.cms.common.seed;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import vn.com.nws.cms.domain.enums.RoleType;
+import vn.com.nws.cms.modules.academic.domain.model.Course;
+import vn.com.nws.cms.modules.academic.domain.model.Semester;
+import vn.com.nws.cms.modules.academic.domain.model.Subject;
+import vn.com.nws.cms.modules.academic.domain.repository.CourseRepository;
+import vn.com.nws.cms.modules.academic.domain.repository.SemesterRepository;
+import vn.com.nws.cms.modules.academic.domain.repository.SubjectRepository;
+import vn.com.nws.cms.modules.auth.domain.model.User;
+import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
+
+import java.time.LocalDate;
+import java.util.Set;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+@Transactional
+public class DataSeeder implements CommandLineRunner {
+
+    private final UserRepository userRepository;
+    private final SemesterRepository semesterRepository;
+    private final SubjectRepository subjectRepository;
+    private final CourseRepository courseRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    public void run(String... args) {
+        log.info("=== Starting Data Seeder ===");
+
+        // Flyway already seeds initial roles and basic users (admin, teacher, student).
+        // We should check if they exist and only add demo data if missing.
+        // Or we can rely on Flyway for basic structure and use this for additional demo data.
+        
+        seedUsers();
+        seedSemesters();
+        seedSubjects();
+        seedCourses();
+
+        log.info("=== Data Seeder completed successfully ===");
+    }
+
+    /* =========================
+       USERS
+       ========================= */
+
+    private void seedUsers() {
+        // Only seed if not exist. 
+        // Note: Flyway V2 inserts admin, teacher, student.
+        // We can add a manager for multi-role demo if not present.
+
+        seedUserIfNotExists(
+                "manager",
+                "manager@nws.com.vn",
+                "manager123",
+                Set.of(RoleType.TEACHER, RoleType.ADMIN)
+        );
+
+        log.info("Users seeding check done.");
+    }
+
+    private void seedUserIfNotExists(
+            String username,
+            String email,
+            String rawPassword,
+            Set<RoleType> roles
+    ) {
+        if (userRepository.existsByEmail(email)) {
+            log.info("User [{}] already exists, skipping", email);
+            return;
+        }
+
+        User user = User.builder()
+                .username(username)
+                .email(email)
+                .password(passwordEncoder.encode(rawPassword))
+                .roles(roles)
+                .build();
+
+        userRepository.save(user);
+        log.info("Seeded user [{}]", email);
+    }
+
+    /* =========================
+       SEMESTERS
+       ========================= */
+
+    private void seedSemesters() {
+        // Same check, rely on DB constraints or checks
+        seedSemesterIfNotExists(
+                "HK1_2425",
+                "Học kỳ 1 2024-2025",
+                LocalDate.of(2024, 9, 1),
+                LocalDate.of(2025, 1, 15),
+                true
+        );
+
+        seedSemesterIfNotExists(
+                "HK2_2425",
+                "Học kỳ 2 2024-2025",
+                LocalDate.of(2025, 1, 20),
+                LocalDate.of(2025, 6, 15),
+                false
+        );
+
+        log.info("Semesters seeding done.");
+    }
+
+    private void seedSemesterIfNotExists(
+            String code,
+            String name,
+            LocalDate startDate,
+            LocalDate endDate,
+            boolean active
+    ) {
+        if (semesterRepository.findByCode(code).isPresent()) {
+            log.info("Semester [{}] already exists, skipping", code);
+            return;
+        }
+
+        Semester semester = Semester.builder()
+                .code(code)
+                .name(name)
+                .startDate(startDate)
+                .endDate(endDate)
+                .active(active)
+                .build();
+
+        semesterRepository.save(semester);
+        log.info("Seeded semester [{}]", code);
+    }
+
+    /* =========================
+       SUBJECTS
+       ========================= */
+
+    private void seedSubjects() {
+        seedSubjectIfNotExists(
+                "JAVA001",
+                "Lập trình Java căn bản",
+                3,
+                "Môn học cung cấp kiến thức nền tảng về ngôn ngữ lập trình Java."
+        );
+
+        seedSubjectIfNotExists(
+                "WEB002",
+                "Lập trình Web với Spring Boot",
+                4,
+                "Xây dựng ứng dụng web hiện đại sử dụng Spring Boot framework."
+        );
+
+        seedSubjectIfNotExists(
+                "DB003",
+                "Cơ sở dữ liệu",
+                3,
+                "Kiến thức về thiết kế và quản trị cơ sở dữ liệu quan hệ."
+        );
+
+        log.info("Subjects seeding done.");
+    }
+
+    private void seedSubjectIfNotExists(
+            String code,
+            String name,
+            int credits,
+            String description
+    ) {
+        if (subjectRepository.existsByCode(code)) {
+            log.info("Subject [{}] already exists, skipping", code);
+            return;
+        }
+
+        Subject subject = Subject.builder()
+                .code(code)
+                .name(name)
+                .credits(credits)
+                .description(description)
+                .active(true)
+                .theoryHours(30)
+                .practiceHours(15)
+                .build();
+
+        subjectRepository.save(subject);
+        log.info("Seeded subject [{}]", code);
+    }
+
+
+    /* =========================
+       COURSES
+       ========================= */
+
+    private void seedCourses() {
+        if (courseRepository.findByCode("JAVA001_HK1_01").isPresent()) {
+            log.info("Course [JAVA001_HK1_01] already exists, skipping");
+            return;
+        }
+
+        // We assume 'teacher' user exists (created by Flyway or seeded above)
+        // If not found, we skip seeding course to avoid crash
+        if (!userRepository.existsByUsername("teacher")) {
+             log.warn("Teacher user not found, skipping course seeding");
+             return;
+        }
+
+        Semester semester = semesterRepository.findByCode("HK1_2425")
+                .orElseThrow(() -> new IllegalStateException("Semester HK1_2425 not found"));
+
+        Subject subject = subjectRepository.findByCode("JAVA001")
+                .orElseThrow(() -> new IllegalStateException("Subject JAVA001 not found"));
+
+        User teacher = userRepository.findByUsername("teacher")
+                .orElseThrow(() -> new IllegalStateException("Teacher user not found"));
+
+        Course course = Course.builder()
+                .name("Lớp Java 01 - HK1")
+                .code("JAVA001_HK1_01")
+                .maxStudents(30)
+                .currentStudents(0)
+                .active(true)
+                .semester(semester)
+                .subject(subject)
+                .teacher(teacher)
+                .build();
+
+        courseRepository.save(course);
+        log.info("Seeded course [JAVA001_HK1_01]");
+    }
+}
