@@ -1,0 +1,182 @@
+C:\Users\Admin\Downloads\Repo\cms\src\main\java\vn\com\nws\cms>tree /f /a
+Folder PATH listing
+Volume serial number is 32AB-2ACA
+C:.
+|   CmsApplication.java
+|
++---common
+|   +---audit
+|   |       AuditEntity.java
+|   |
+|   +---config
+|   |       FlywayConfig.java
+|   |       GatewayConfig.java
+|   |       JpaConfig.java
+|   |       JwtConfig.java
+|   |       MinioConfig.java
+|   |       RabbitMqConfig.java
+|   |       RedisConfig.java
+|   |       SecurityConfig.java
+|   |       SwaggerConfig.java
+|   |       WebConfig.java
+|   |
+|   +---dto
+|   |       ApiResponse.java
+|   |       EmailMessage.java
+|   |       PageResponse.java
+|   |
+|   +---exception
+|   |       BusinessException.java
+|   |       ErrorResponse.java
+|   |       GlobalExceptionHandler.java
+|   |       ResourceNotFoundException.java
+|   |
+|   +---security
+|   |       JwtProvider.java
+|   |
+|   +---seed
+|   |       DataSeeder.java
+|   |
+|   \---util
++---domain
+|   \---enums
+|           RoleType.java
+|
++---infrastructure
+|   +---messaging
+|   |       EmailConsumer.java
+|   |       EmailProducer.java
+|   |
+|   \---storage
+|           MinioStorageService.java
+|           StorageService.java
+|
+\---modules
+    +---academic
+    |   +---api
+    |   |   |   CourseController.java
+    |   |   |   EnrollmentController.java
+    |   |   |   SemesterController.java
+    |   |   |   SubjectController.java
+    |   |   |
+    |   |   \---dto
+    |   |           CourseCreateRequest.java
+    |   |           CourseFilterRequest.java
+    |   |           CourseResponse.java
+    |   |           CourseUpdateRequest.java
+    |   |           EnrollmentCreateRequest.java
+    |   |           EnrollmentResponse.java
+    |   |           EnrollmentUpdateRequest.java
+    |   |           SemesterCreateRequest.java
+    |   |           SemesterFilterRequest.java
+    |   |           SemesterResponse.java
+    |   |           SemesterUpdateRequest.java
+    |   |           SubjectCreateRequest.java
+    |   |           SubjectFilterRequest.java
+    |   |           SubjectResponse.java
+    |   |           SubjectUpdateRequest.java
+    |   |
+    |   +---application
+    |   |       CourseService.java
+    |   |       CourseServiceImpl.java
+    |   |       EnrollmentService.java
+    |   |       EnrollmentServiceImpl.java
+    |   |       SemesterService.java
+    |   |       SemesterServiceImpl.java
+    |   |       SubjectService.java
+    |   |       SubjectServiceImpl.java
+    |   |
+    |   +---domain
+    |   |   +---model
+    |   |   |       Course.java
+    |   |   |       Enrollment.java
+    |   |   |       Semester.java
+    |   |   |       Subject.java
+    |   |   |
+    |   |   \---repository
+    |   |           CourseRepository.java
+    |   |           EnrollmentRepository.java
+    |   |           SemesterRepository.java
+    |   |           SubjectRepository.java
+    |   |
+    |   \---infrastructure
+    |       \---persistence
+    |           +---entity
+    |           |       CourseEntity.java
+    |           |       DepartmentEntity.java
+    |           |       EnrollmentEntity.java
+    |           |       SemesterEntity.java
+    |           |       SubjectEntity.java
+    |           |       TeacherEntity.java
+    |           |
+    |           +---mapper
+    |           |       CourseMapper.java
+    |           |       EnrollmentMapper.java
+    |           |       SemesterMapper.java
+    |           |       SubjectMapper.java
+    |           |
+    |           \---repository
+    |                   CourseRepositoryImpl.java
+    |                   EnrollmentRepositoryImpl.java
+    |                   JpaCourseRepository.java
+    |                   JpaEnrollmentRepository.java
+    |                   JpaSemesterRepository.java
+    |                   JpaSubjectRepository.java
+    |                   SemesterRepositoryImpl.java
+    |                   SubjectRepositoryImpl.java
+    |
+    +---auth
+    |   +---api
+    |   |   |   AuthController.java
+    |   |   |
+    |   |   \---dto
+    |   |           ForgotPasswordRequest.java
+    |   |           LoginRequest.java
+    |   |           RefreshTokenRequest.java
+    |   |           RegisterRequest.java
+    |   |           ResetPasswordRequest.java
+    |   |           TokenResponse.java
+    |   |
+    |   +---application
+    |   |       AuthenticationService.java
+    |   |       PasswordService.java
+    |   |       RegistrationService.java
+    |   |
+    |   +---domain
+    |   |   +---model
+    |   |   |       User.java
+    |   |   |
+    |   |   \---repository
+    |   |           UserRepository.java
+    |   |
+    |   \---infrastructure
+    |       |   CustomUserDetailsService.java
+    |       |
+    |       \---persistence
+    |           +---entity
+    |           |       RoleEntity.java
+    |           |       UserEntity.java
+    |           |       UserRoleEntity.java
+    |           |       UserRoleId.java
+    |           |
+    |           +---mapper
+    |           |       UserMapper.java
+    |           |
+    |           \---repository
+    |                   JpaRoleRepository.java
+    |                   JpaUserRepository.java
+    |                   UserRepositoryImpl.java
+    |
+    \---user
+        +---api
+        |   |   UserController.java
+        |   |
+        |   \---dto
+        |           UserCreateRequest.java
+        |           UserFilterRequest.java
+        |           UserResponse.java
+        |           UserUpdateRequest.java
+        |
+        \---application
+                UserService.java
+                UserServiceImpl.java
