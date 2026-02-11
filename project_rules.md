@@ -74,6 +74,6 @@
 - **Libraries**:
   - Use `Lombok` to reduce boilerplate.
   - Use `MapStruct` for object mapping.
-
+- **Enums**: avoid typo; easy refactor
 ## E-Learning Standards
 - **Compliance**: System should be designed with SCORM and xAPI (Tin Can API) standards in mind.
