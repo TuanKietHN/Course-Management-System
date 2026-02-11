@@ -169,10 +169,10 @@ public class DataSeeder implements CommandLineRunner {
     private void seedSubjectIfNotExists(
             String code,
             String name,
-            int credit,
+            int credits,
             String description
     ) {
-        if (subjectRepository.findByCode(code).isPresent()) {
+        if (subjectRepository.existsByCode(code)) {
             log.info("Subject [{}] already exists, skipping", code);
             return;
         }
@@ -180,14 +180,17 @@ public class DataSeeder implements CommandLineRunner {
         Subject subject = Subject.builder()
                 .code(code)
                 .name(name)
-                .credit(credit)
+                .credits(credits)
                 .description(description)
                 .active(true)
+                .theoryHours(30)
+                .practiceHours(15)
                 .build();
 
         subjectRepository.save(subject);
         log.info("Seeded subject [{}]", code);
     }
+
 
     /* =========================
        COURSES

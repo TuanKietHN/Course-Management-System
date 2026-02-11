@@ -14,7 +14,10 @@ public class Subject extends AuditEntity {
     private Long id;
     private String name;
     private String code;
-    private Integer credit;
+    private Integer credits;
     private String description;
     private boolean active;
+    private Long departmentId;
+    private Integer theoryHours;
+    private Integer practiceHours;
 }

@@ -163,7 +163,7 @@ public class CourseServiceImpl implements CourseService {
                         .id(course.getSubject().getId())
                         .name(course.getSubject().getName())
                         .code(course.getSubject().getCode())
-                        .credit(course.getSubject().getCredit())
+                        .credit(course.getSubject().getCredits())
                         .build())
                 .semester(SemesterResponse.builder()
                         .id(course.getSemester().getId())
