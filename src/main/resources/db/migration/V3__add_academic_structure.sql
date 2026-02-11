@@ -32,7 +32,7 @@ CREATE INDEX idx_departments_parent_id ON departments(parent_id);
 -- 2. TEACHERS TABLE
 -- =====================================================
 -- Lưu thông tin chi tiết giảng viên
--- Thiết kế: Tách riêng khỏi users để linh hoạt (1 user có thể có profile teacher riêng)
+-- Thiết kế: Tách riêng khỏi users để linh hoạt (1 iam có thể có profile teacher riêng)
 CREATE TABLE teachers (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,         -- Link đến users table
@@ -210,7 +210,7 @@ LEFT JOIN departments d ON c.department_id = d.id;
 --    - Dễ mở rộng: thêm fields như phone, address sau
 --
 -- 2. TEACHERS TABLE:
---    - Tách riêng khỏi users: 1 user có thể có nhiều role, teacher là 1 profile
+--    - Tách riêng khỏi users: 1 iam có thể có nhiều role, teacher là 1 profile
 --    - employee_code: UNIQUE, dùng cho quản lý nhân sự
 --    - specialization: Giúp match teacher với course phù hợp
 --    - office_hours: Students biết khi nào có thể gặp teacher

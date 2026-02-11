@@ -14,7 +14,7 @@ import vn.com.nws.cms.modules.academic.domain.repository.SemesterRepository;
 import vn.com.nws.cms.modules.academic.domain.repository.SubjectRepository;
 import vn.com.nws.cms.modules.auth.domain.model.User;
 import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
-import vn.com.nws.cms.modules.user.api.dto.UserResponse;
+import vn.com.nws.cms.modules.iam.api.dto.UserResponse;
 
 import java.util.List;
 import java.util.stream.Collectors;

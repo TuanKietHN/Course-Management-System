@@ -73,7 +73,7 @@ public class AuthenticationService {
         // 2. Validate Single Session (Token Reuse Detection)
         String currentActiveToken = (String) redisTemplate.opsForValue().get(REDIS_USER_RT_KEY_PREFIX + username);
         if (!requestRefreshToken.equals(currentActiveToken)) {
-            // Token mismatch! Possible theft. Invalidate everything for this user.
+            // Token mismatch! Possible theft. Invalidate everything for this iam.
             redisTemplate.delete(REDIS_USER_RT_KEY_PREFIX + username);
             redisTemplate.delete(REDIS_RT_KEY_PREFIX + requestRefreshToken);
             if (currentActiveToken != null) {

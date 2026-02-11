@@ -119,10 +119,10 @@ INSERT INTO permissions (name, resource, action, description, created_at, update
 
 -- User permissions
 INSERT INTO permissions (name, resource, action, description, created_at, updated_at) VALUES
-    ('USER:CREATE', 'USER', 'CREATE', 'Create new user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('USER:READ', 'USER', 'READ', 'View user details', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('USER:UPDATE', 'USER', 'UPDATE', 'Update user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('USER:DELETE', 'USER', 'DELETE', 'Delete user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+    ('USER:CREATE', 'USER', 'CREATE', 'Create new iam', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('USER:READ', 'USER', 'READ', 'View iam details', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('USER:UPDATE', 'USER', 'UPDATE', 'Update iam', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('USER:DELETE', 'USER', 'DELETE', 'Delete iam', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- Enrollment permissions
 INSERT INTO permissions (name, resource, action, description, created_at, updated_at) VALUES
@@ -141,7 +141,7 @@ FROM roles r
 CROSS JOIN permissions p
 WHERE r.name = 'ROLE_ADMIN';
 
--- TEACHER có quyền quản lý course và xem user
+-- TEACHER có quyền quản lý course và xem iam
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r, permissions p

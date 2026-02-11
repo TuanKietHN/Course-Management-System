@@ -85,7 +85,7 @@ public class DataSeeder implements CommandLineRunner {
                 .build();
 
         userRepository.save(user);
-        log.info("Seeded user [{}]", email);
+        log.info("Seeded iam [{}]", email);
     }
 
     /* =========================
@@ -202,10 +202,10 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
 
-        // We assume 'teacher' user exists (created by Flyway or seeded above)
+        // We assume 'teacher' iam exists (created by Flyway or seeded above)
         // If not found, we skip seeding course to avoid crash
         if (!userRepository.existsByUsername("teacher")) {
-             log.warn("Teacher user not found, skipping course seeding");
+             log.warn("Teacher iam not found, skipping course seeding");
              return;
         }
 
@@ -216,7 +216,7 @@ public class DataSeeder implements CommandLineRunner {
                 .orElseThrow(() -> new IllegalStateException("Subject JAVA001 not found"));
 
         User teacher = userRepository.findByUsername("teacher")
-                .orElseThrow(() -> new IllegalStateException("Teacher user not found"));
+                .orElseThrow(() -> new IllegalStateException("Teacher iam not found"));
 
         Course course = Course.builder()
                 .name("Lớp Java 01 - HK1")

@@ -1,4 +1,4 @@
-package vn.com.nws.cms.modules.user.application;
+package vn.com.nws.cms.modules.iam.application;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,7 +10,7 @@ import vn.com.nws.cms.common.exception.BusinessException;
 import vn.com.nws.cms.domain.enums.RoleType;
 import vn.com.nws.cms.modules.auth.domain.model.User;
 import vn.com.nws.cms.modules.auth.domain.repository.UserRepository;
-import vn.com.nws.cms.modules.user.api.dto.*;
+import vn.com.nws.cms.modules.iam.api.dto.*;
 
 import java.io.IOException;
 import java.nio.file.Files;

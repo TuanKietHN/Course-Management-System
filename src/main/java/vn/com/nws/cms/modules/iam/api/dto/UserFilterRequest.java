@@ -1,4 +1,4 @@
-package vn.com.nws.cms.modules.user.api.dto;
+package vn.com.nws.cms.modules.iam.api.dto;
 
 import lombok.Data;
 

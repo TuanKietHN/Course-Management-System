@@ -1,4 +1,4 @@
-package vn.com.nws.cms.modules.user.api;
+package vn.com.nws.cms.modules.iam.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import vn.com.nws.cms.common.dto.ApiResponse;
 import vn.com.nws.cms.common.dto.PageResponse;
-import vn.com.nws.cms.modules.user.api.dto.*;
-import vn.com.nws.cms.modules.user.application.UserService;
+import vn.com.nws.cms.modules.iam.api.dto.*;
+import vn.com.nws.cms.modules.iam.application.UserService;
 
 @RestController
 @RequestMapping("/api/v1/users")

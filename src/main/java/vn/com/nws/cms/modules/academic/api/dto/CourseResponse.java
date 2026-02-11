@@ -2,7 +2,7 @@ package vn.com.nws.cms.modules.academic.api.dto;
 
 import lombok.Builder;
 import lombok.Data;
-import vn.com.nws.cms.modules.user.api.dto.UserResponse;
+import vn.com.nws.cms.modules.iam.api.dto.UserResponse;
 
 import java.time.LocalDateTime;
 
